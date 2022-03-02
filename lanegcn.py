@@ -13,7 +13,7 @@ from torch import Tensor, nn
 from torch.nn import functional as F
 
 from data import ArgoDataset, collate_fn
-from utils import gpu, to_long,  Optimizer, StepLR
+from utils.utils import gpu, to_long,  Optimizer, StepLR
 
 from layers import Conv1d, Res1d, Linear, LinearRes, Null
 from numpy import float64, ndarray
@@ -47,8 +47,10 @@ if "save_dir" not in config:
 if not os.path.isabs(config["save_dir"]):
     config["save_dir"] = os.path.join(root_path, "results", config["save_dir"])
 
-config["batch_size"] = 32
-config["val_batch_size"] = 32
+#config["batch_size"] = 32
+config["batch_size"] = 8
+#config["val_batch_size"] = 32
+config["val_batch_size"] = 8
 config["workers"] = 0
 config["val_workers"] = config["workers"]
 

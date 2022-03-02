@@ -54,7 +54,7 @@ def main():
         load_pretrain(net, ckpt["state_dict"])
         if args.resume:
             config["epoch"] = ckpt["epoch"]
-            opt.load_state_dict(ckpt["opt_state"])
+            #opt.load_state_dict(ckpt["opt_state"])
 
     if args.eval:
         # Data loader for evaluation
@@ -80,14 +80,14 @@ def main():
         os.makedirs(save_dir)
     sys.stdout = Logger(log)
 
-    src_dirs = [root_path]
+    """src_dirs = [root_path]
     dst_dirs = [os.path.join(save_dir, "files")]
     for src_dir, dst_dir in zip(src_dirs, dst_dirs):
         files = [f for f in os.listdir(src_dir) if f.endswith(".py")]
         if not os.path.exists(dst_dir):
             os.makedirs(dst_dir)
         for f in files:
-            shutil.copy(os.path.join(src_dir, f), os.path.join(dst_dir, f))
+            shutil.copy(os.path.join(src_dir, f), os.path.join(dst_dir, f))"""
 
     # Data loader for training
     dataset = Dataset(config["train_split"], config, train=True)
@@ -128,7 +128,7 @@ def worker_init_fn(pid):
 
 
 def train(epoch, config, train_loader, net, loss, post_process, opt, val_loader=None):
-    train_loader.sampler.set_epoch(int(epoch))
+    #train_loader.sampler.set_epoch(int(epoch))
     net.train()
 
     num_batches = len(train_loader)
@@ -151,8 +151,12 @@ def train(epoch, config, train_loader, net, loss, post_process, opt, val_loader=
         post_process.append(metrics, loss_out, post_out)
 
         opt.zero_grad()
+        #import ipdb;ipdb.set_trace()
         loss_out["loss"].backward()
         lr = opt.step(epoch)
+
+        print("training epoch {}  loss_value {}  device {}".format(epoch,loss_out["loss"].item(), loss_out["loss"].device))
+
 
         num_iters = int(np.round(epoch * num_batches))
         if num_iters % save_iters == 0 or epoch >= config["num_epochs"]:
@@ -202,8 +206,12 @@ def save_ckpt(net, opt, save_dir, epoch):
         state_dict[key] = state_dict[key].cpu()
 
     save_name = "%3.3f.ckpt" % epoch
-    torch.save(
+    """torch.save(
         {"epoch": epoch, "state_dict": state_dict, "opt_state": opt.state_dict()},
+        os.path.join(save_dir, save_name),
+    )"""
+    torch.save(
+        {"epoch": epoch, "state_dict": state_dict},
         os.path.join(save_dir, save_name),
     )
 
