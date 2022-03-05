@@ -60,6 +60,9 @@ class LocalUpdate(object):
                 if (epoch*len(self.ldr_train)+i+1)%print_interval == 0:
                     print("Local training {}/{}".format(epoch*len(self.ldr_train)+i+1, local_iter))
 
+                import ipdb;ipdb.set_trace()
+                
+
                 data = dict(data)
                 output = net(data)
                 loss_out = loss(output, data)
@@ -178,10 +181,11 @@ class Loss(nn.Module):
     def __init__(self, config):
         super(Loss, self).__init__()
         self.config = config
+        self.device = config['device']
         self.pred_loss = PredLoss(config)
 
     def forward(self, out: Dict, data: Dict) -> Dict:
-        loss_out = self.pred_loss(out, gpu(data["gt_preds"]), gpu(data["has_preds"]))
+        loss_out = self.pred_loss(out, gpu(data["gt_preds"], self.device), gpu(data["has_preds"], self.device))
         loss_out["loss"] = loss_out["cls_loss"] / (
             loss_out["num_cls"] + 1e-10
         ) + loss_out["reg_loss"] / (loss_out["num_reg"] + 1e-10)

@@ -24,75 +24,6 @@ file_path = os.path.abspath(__file__)
 root_path = os.path.dirname(file_path)
 model_name = os.path.basename(file_path).split(".")[0]
 
-### config ###
-config = dict()
-"""Train"""
-config["display_iters"] = 205942
-config["val_iters"] = 205942 * 2
-config["save_freq"] = 1.0
-config["epoch"] = 0
-config["horovod"] = True
-config["opt"] = "adam"
-config["num_epochs"] = 36
-config["lr"] = [1e-3, 1e-4]
-config["lr_epochs"] = [32]
-config["lr_func"] = StepLR(config["lr"], config["lr_epochs"])
-
-
-if "save_dir" not in config:
-    config["save_dir"] = os.path.join(
-        root_path, "results", model_name
-    )
-
-if not os.path.isabs(config["save_dir"]):
-    config["save_dir"] = os.path.join(root_path, "results", config["save_dir"])
-
-#config["batch_size"] = 32
-config["batch_size"] = 8
-#config["val_batch_size"] = 32
-config["val_batch_size"] = 8
-config["workers"] = 0
-config["val_workers"] = config["workers"]
-
-
-"""Dataset"""
-# Raw Dataset
-config["train_split"] = os.path.join(
-    root_path, "dataset/train/data"
-)
-config["val_split"] = os.path.join(root_path, "dataset/val/data")
-config["test_split"] = os.path.join(root_path, "dataset/test_obs/data")
-
-# Preprocessed Dataset
-config["preprocess"] = True # whether use preprocess or not
-config["preprocess_train"] = os.path.join(
-    root_path, "dataset","preprocess", "train_crs_dist6_angle90.p"
-)
-config["preprocess_val"] = os.path.join(
-    root_path,"dataset", "preprocess", "val_crs_dist6_angle90.p"
-)
-config['preprocess_test'] = os.path.join(root_path, "dataset",'preprocess', 'test_test.p')
-
-"""Model"""
-config["rot_aug"] = False
-config["pred_range"] = [-100.0, 100.0, -100.0, 100.0]
-config["num_scales"] = 6
-config["n_actor"] = 128
-config["n_map"] = 128
-config["actor2map_dist"] = 7.0
-config["map2actor_dist"] = 6.0
-config["actor2actor_dist"] = 100.0
-config["pred_size"] = 30
-config["pred_step"] = 1
-config["num_preds"] = config["pred_size"] // config["pred_step"]
-config["num_mods"] = 6
-config["cls_coef"] = 1.0
-config["reg_coef"] = 1.0
-config["mgn"] = 0.2
-config["cls_th"] = 2.0
-config["cls_ignore"] = 0.2
-### end of config ###
-
 class Net(nn.Module):
     """
     Lane Graph Network contains following components:
@@ -115,7 +46,7 @@ class Net(nn.Module):
     def __init__(self, config):
         super(Net, self).__init__()
         self.config = config
-
+        self.device = config['device']
         self.actor_net = ActorNet(config)
         self.map_net = MapNet(config)
 
@@ -128,12 +59,12 @@ class Net(nn.Module):
 
     def forward(self, data: Dict) -> Dict[str, List[Tensor]]:
         # construct actor feature
-        actors, actor_idcs = actor_gather(gpu(data["feats"]))
-        actor_ctrs = gpu(data["ctrs"])
+        actors, actor_idcs = actor_gather(gpu(data["feats"], self.device))
+        actor_ctrs = gpu(data["ctrs"], self.device)
         actors = self.actor_net(actors)
 
         # construct map features
-        graph = graph_gather(to_long(gpu(data["graph"])))
+        graph = graph_gather(to_long(gpu(data["graph"], self.device)))
         nodes, node_idcs, node_ctrs = self.map_net(graph)
 
         # actor-map fusion cycle 
@@ -144,7 +75,7 @@ class Net(nn.Module):
 
         # prediction
         out = self.pred_net(actors, actor_idcs, actor_ctrs)
-        rot, orig = gpu(data["rot"]), gpu(data["orig"])
+        rot, orig = gpu(data["rot"], self.device), gpu(data["orig"], self.device)
         # transform prediction to world coordinates
         for i in range(len(out["reg"])):
             out["reg"][i] = torch.matmul(out["reg"][i], rot[i]) + orig[i].view(
@@ -813,10 +744,11 @@ class Loss(nn.Module):
     def __init__(self, config):
         super(Loss, self).__init__()
         self.config = config
+        self.device = config['device']
         self.pred_loss = PredLoss(config)
 
     def forward(self, out: Dict, data: Dict) -> Dict:
-        loss_out = self.pred_loss(out, gpu(data["gt_preds"]), gpu(data["has_preds"]))
+        loss_out = self.pred_loss(out, gpu(data["gt_preds"], self.device), gpu(data["has_preds"], self.device))
         loss_out["loss"] = loss_out["cls_loss"] / (
             loss_out["num_cls"] + 1e-10
         ) + loss_out["reg_loss"] / (loss_out["num_reg"] + 1e-10)
@@ -901,15 +833,82 @@ def pred_metrics(preds, gt_preds, has_preds):
     return ade1, fde1, ade, fde, min_idcs
 
 
-def get_model():
+def get_model(args):
+    config = get_config(args)
     net = Net(config)
-    net = net.cuda()
+    net = net.to(args.device)
 
-    loss = Loss(config).cuda()
-    post_process = PostProcess(config).cuda()
+    loss = Loss(config).to(args.device)
+    post_process = PostProcess(config).to(args.device)
 
     params = net.parameters()
-    opt = Optimizer(params, config)
+
+    return config, ArgoDataset, collate_fn, net, loss, post_process
+
+def get_config(args):
+    ### config ###
+    config = dict()
+    """Train"""
+    config['device'] = args.device
+    config["display_iters"] = 205942
+    config["val_iters"] = 205942 * 2
+    #config["save_freq"] = 1.0
+    #config["epoch"] = 0
+    #config["horovod"] = False
+    #config["opt"] = "SGD"
+    #config["num_epochs"] = 36
+    #config["lr"] = [1e-3, 1e-4]
+    #config["lr_epochs"] = [32]
+    #config["lr_func"] = StepLR(config["lr"], config["lr_epochs"])
 
 
-    return config, ArgoDataset, collate_fn, net, loss, post_process, opt
+    if "save_dir" not in config:
+        config["save_dir"] = os.path.join(root_path, "results", model_name)
+
+    if not os.path.isabs(config["save_dir"]):
+        config["save_dir"] = os.path.join(root_path, "results", config["save_dir"])
+
+    #config["batch_size"] = 32
+    config["batch_size"] = 8
+    #config["val_batch_size"] = 32
+    config["val_batch_size"] = 8
+    #config["workers"] = 0
+    #config["val_workers"] = config["workers"]
+
+
+    """Dataset"""
+    # Raw Dataset
+    config["train_split"] = os.path.join(root_path, "dataset/train/data")
+    config["val_split"] = os.path.join(root_path, "dataset/val/data")
+    config["test_split"] = os.path.join(root_path, "dataset/test_obs/data")
+
+    # Preprocessed Dataset
+    config["preprocess"] = True # whether use preprocess or not
+    config["preprocess_train"] = os.path.join(
+        root_path, "dataset","preprocess", "train_crs_dist6_angle90.p"
+    )
+    config["preprocess_val"] = os.path.join(
+        root_path,"dataset", "preprocess", "val_crs_dist6_angle90.p"
+    )
+    config['preprocess_test'] = os.path.join(root_path, "dataset",'preprocess', 'test_test.p')
+
+    """Model"""
+    config["rot_aug"] = False
+    config["pred_range"] = [-100.0, 100.0, -100.0, 100.0]
+    config["num_scales"] = 6
+    config["n_actor"] = 128
+    config["n_map"] = 128
+    config["actor2map_dist"] = 7.0
+    config["map2actor_dist"] = 6.0
+    config["actor2actor_dist"] = 100.0
+    config["pred_size"] = 30
+    config["pred_step"] = 1
+    config["num_preds"] = config["pred_size"] // config["pred_step"]
+    config["num_mods"] = 6
+    config["cls_coef"] = 1.0
+    config["reg_coef"] = 1.0
+    config["mgn"] = 0.2
+    config["cls_th"] = 2.0
+    config["cls_ignore"] = 0.2
+    ### end of config ###
+    return config

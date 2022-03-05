@@ -14,7 +14,7 @@ def args_parser():
     # federated arguments
     parser.add_argument('--num_items', type=int, default=8096,
                         help="number of data from every user's local dataset. type: int or list")
-    parser.add_argument('--local_train_speed', type=float, default=10,
+    parser.add_argument('--local_train_speed', type=float, default=100,
                         help="the calculation speed of local iteration. local_train_speed * local_train_time = local_iter")
     parser.add_argument('--local_bs', type=int, default=128,
                         help="local batch size: B")
