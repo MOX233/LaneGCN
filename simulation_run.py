@@ -13,6 +13,9 @@ from utils.FL_training import FL_training
 # this is the main entry point of this script
 if __name__ == "__main__":
     args = args_parser()
+    args.MU_local_train = args.local_iter * args.mu_local_train
+    args.BETA_local_train = args.local_iter * args.beta_local_train
+
     if args.no_sumo_run == False:
         sumo_run(args, save_dir=args.sumo_data_dir)
     car_tripinfo = read_tripInfo(tripInfo_path=os.path.join(args.sumo_data_dir,'tripinfo.xml'))
@@ -20,15 +23,10 @@ if __name__ == "__main__":
 
     file_path = os.path.abspath(__file__)
     root_path = os.path.dirname(file_path)
-    #args.train_features = os.path.join(root_path, "dataset/train/data")
-    #args.val_features = os.path.join(root_path, "dataset/val/data")
-    #args.test_features = os.path.join(root_path, "dataset/test_obs/data")
-    #args.train_features = "./data/features/forecasting_features_train.pkl"
-    #args.val_features = "./data/features/forecasting_features_val.pkl"
-    #args.test_features = "./data/features/forecasting_features_val.pkl"
 
     if args.save_address_id == "default":
-        args.save_address_id = 'RoundDuration{}_LocalTrainDelay{}_LocalIterNum{}_LocalBatchSize{}_Lambda{}_maxSpeed{}_noniid{}'.format(args.round_duration, args.local_train_time, args.local_iter, args.local_bs, args.Lambda, args.maxSpeed, int(args.non_iid))
+        args.save_address_id = 'RoundDuration{}_LocalTrainDelay_mu{}_beta{}_LocalIterNum{}_LocalBatchSize{}_Lambda{}_maxSpeed{}_noniid{}'.format(args.round_duration, args.mu_local_train, args.beta_local_train, args.local_iter, args.local_bs, args.Lambda, args.maxSpeed, int(args.non_iid))
     
-    args.local_iter = int(args.local_train_speed * args.local_train_time)
+    #args.local_iter = int(args.local_train_speed * args.local_train_time)
+
     FL_training(args,FL_table,car_tripinfo)

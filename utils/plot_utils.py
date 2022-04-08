@@ -43,51 +43,66 @@ def plot_loss_acc_curve(args, loss_train, loss_val, metrices_eval, rounds):
     # accuracy
     plt.subplot(2, 2, 2)
     plt.plot(range(len(metrices_eval)), [i["minADE"]
-             for i in metrices_eval], color='r', label='minADE')
+             for i in metrices_eval], color='r', linestyle='--', marker='*', label='minADE(K=6)')
     plt.plot(range(len(metrices_eval)), [i["minFDE"]
-             for i in metrices_eval], color='g', label='minFDE')
+             for i in metrices_eval], color='g', linestyle='--', marker='*', label='minFDE(K=6)')
+    plt.plot(range(len(metrices_eval)), [i["minADE1"]
+             for i in metrices_eval], color='r', label='minADE(K=1)')
+    plt.plot(range(len(metrices_eval)), [i["minFDE1"]
+             for i in metrices_eval], color='g', label='minFDE(K=1)')
     plt.xlabel('round')
     plt.ylabel('minADE/minFDE')
     plt.legend()
     plt.subplot(2, 2, 4)
     plt.plot(range(len(metrices_eval)), [i["MR"]
              for i in metrices_eval], color='b', label='MR')
-    plt.plot(range(len(metrices_eval)), [i["DAC"]
-             for i in metrices_eval], color='r', label='DAC')
+    plt.plot(range(len(metrices_eval)), [i["MR1"]
+             for i in metrices_eval], color='r', label='MR1')
     plt.xlabel('round')
-    plt.ylabel('MR/DAC')
+    plt.ylabel('MR')
     plt.legend()
     # params description
     plt.subplot(2, 2, 3)
-    plt.axis([0, 10, 0, 10])
+    plt.axis([0, 11, 0, 11])
     plt.axis('off')
     fontsize = 12
-    plt.text(0, 9, 'Round Num: {}'.format(rounds), fontsize=fontsize)
-    plt.text(0, 8, 'Round Duration: {}'.format(
+    plt.text(0, 10, 'Round Num: {}'.format(rounds), fontsize=fontsize)
+    plt.text(0, 9, 'Round Duration: {}'.format(
         args.round_duration), fontsize=fontsize)
-    plt.text(0, 7, 'Local Train Delay: {}'.format(
-        args.local_train_time), fontsize=fontsize)
+    plt.text(0, 8, 'mu for Local Train Delay: {}'.format(
+        args.mu_local_train), fontsize=fontsize)
+    plt.text(0, 7, 'beta for Local Train Delay: {}'.format(
+        args.beta_local_train), fontsize=fontsize)
     plt.text(0, 6, 'Local Iter Num: {}'.format(
         args.local_iter), fontsize=fontsize)
     plt.text(0, 5, 'Local Batch Size: {}'.format(
         args.local_bs), fontsize=fontsize)
     plt.text(0, 4, 'Learning Rate: {}'.format(args.lr), fontsize=fontsize)
     plt.text(0, 3, 'non-i.i.d.: {}'.format(args.non_iid), fontsize=fontsize)
-    plt.text(0, 2, 'min_train_loss {}'.format(
+    plt.text(0, 1, 'min_train_loss: {:.6f}'.format(
         min_ignore_None(loss_train)), fontsize=fontsize)
-    plt.text(0, 1, 'min_val_loss {}'.format(min_ignore_None(loss_val)), fontsize=fontsize)
-    plt.text(0, 0, 'min_minADE {}'.format(
-        min_ignore_None([i["minADE"] for i in metrices_eval])), fontsize=fontsize)
+    plt.text(0, 0, 'min_val_loss: {:.6f}'.format(min_ignore_None(loss_val)), fontsize=fontsize)
 
-    plt.text(6, 9, 'Lambda: {}'.format(args.Lambda), fontsize=fontsize)
-    plt.text(6, 8, 'maxSpeed: {}'.format(args.maxSpeed), fontsize=fontsize)
-    plt.text(6, 7, 'beta_download: {}'.format(
-        args.beta_download), fontsize=fontsize)
-    plt.text(6, 6, 'mu_download: {}'.format(
-        args.mu_download), fontsize=fontsize)
-    plt.text(6, 5, 'beta_upload: {}'.format(
-        args.beta_upload), fontsize=fontsize)
-    plt.text(6, 4, 'mu_upload: {}'.format(args.mu_upload), fontsize=fontsize)
+    plt.text(6, 10, 'Lambda: {}'.format(args.Lambda), fontsize=fontsize)
+    plt.text(6, 9, 'maxSpeed: {}'.format(args.maxSpeed), fontsize=fontsize)
+    plt.text(6, 8, 'delay_download: {}'.format(
+        args.delay_download), fontsize=fontsize)
+    plt.text(6, 7, 'delay_upload: {}'.format(args.delay_upload), fontsize=fontsize)
+
+    plt.text(6, 5, 'min_minADE: {:.6f}'.format(
+        min_ignore_None([i["minADE"] for i in metrices_eval])), fontsize=fontsize)
+    plt.text(6, 4, 'min_minADE1: {:.6f}'.format(
+        min_ignore_None([i["minADE1"] for i in metrices_eval])), fontsize=fontsize)
+    plt.text(6, 3, 'min_minFDE: {:.6f}'.format(
+        min_ignore_None([i["minFDE"] for i in metrices_eval])), fontsize=fontsize)
+    plt.text(6, 2, 'min_minFDE1: {:.6f}'.format(
+        min_ignore_None([i["minFDE1"] for i in metrices_eval])), fontsize=fontsize)
+    plt.text(6, 1, 'min_MR: {:.6f}'.format(
+        min_ignore_None([i["MR"] for i in metrices_eval])), fontsize=fontsize)
+    plt.text(6, 0, 'min_MR1: {:.6f}'.format(
+        min_ignore_None([i["MR1"] for i in metrices_eval])), fontsize=fontsize)
+
+
     """if args.split_dict == 0:
         plt.text(6, 3, 'split_dict: {}'.format(
             "LOS_split_dict"), fontsize=fontsize)
@@ -102,7 +117,103 @@ def plot_loss_acc_curve(args, loss_train, loss_val, metrices_eval, rounds):
     if args.plot_save_path != "default":
         savePath = args.plot_save_path
     os.makedirs(savePath, exist_ok=True)
-    savePath = os.path.join(savePath, 'RoundDuration{}_LocalTrainDelay{}_LocalIterNum{}_LocalBatchSize{}_Lambda{}_maxSpeed{}_noniid{}.png'.format(
-        args.round_duration, args.local_train_time, args.local_iter, args.local_bs, args.Lambda, args.maxSpeed, args.non_iid))
+    savePath = os.path.join(savePath, 'RoundDuration{}_LocalTrainDelay_mu{}_beta{}_LocalIterNum{}_LocalBatchSize{}_Lambda{}_maxSpeed{}_noniid{}.png'.format(
+        args.round_duration, args.mu_local_train, args.beta_local_train, args.local_iter, args.local_bs, args.Lambda, args.maxSpeed, args.non_iid))
+    plt.savefig(savePath)
+    plt.close()
+
+
+def plot_for_CL(args, loss_train, loss_val_same, loss_val_other, metrices_eval_same, metrices_eval_other, rounds):
+    plt.figure(figsize=(15, 15), dpi=100)
+    # loss
+    plt.subplot(2, 2, 1)
+    plt.plot(range(len(loss_train)), loss_train,
+             color='r', label='Training Loss')
+    plt.plot(range(len(loss_val_same)), loss_val_same,
+             color='b', label='Validation Loss')
+    plt.plot(range(len(loss_val_other)), loss_val_other,
+             color='g', label='Validation Loss')
+    plt.xlabel('round')
+    plt.ylabel('train_loss')
+    plt.legend()
+    # accuracy
+    plt.subplot(2, 2, 2)
+    plt.plot(range(len(metrices_eval_same)), [i["minADE"]
+             for i in metrices_eval_same], color='r', linestyle='--', marker='*', label='minADE(K=6)')
+    plt.plot(range(len(metrices_eval_same)), [i["minFDE"]
+             for i in metrices_eval_same], color='g', linestyle='--', marker='*', label='minFDE(K=6)')
+    plt.plot(range(len(metrices_eval_same)), [i["minADE1"]
+             for i in metrices_eval_same], color='r', label='minADE(K=1)')
+    plt.plot(range(len(metrices_eval_same)), [i["minFDE1"]
+             for i in metrices_eval_same], color='g', label='minFDE(K=1)')
+    plt.xlabel('round')
+    plt.ylabel('minADE/minFDE')
+    plt.legend()
+    plt.subplot(2, 2, 4)
+    plt.plot(range(len(metrices_eval_same)), [i["MR"]
+             for i in metrices_eval_same], color='b', label='MR')
+    plt.plot(range(len(metrices_eval_same)), [i["MR1"]
+             for i in metrices_eval_same], color='r', label='MR1')
+    plt.xlabel('round')
+    plt.ylabel('MR')
+    plt.legend()
+    # params description
+    plt.subplot(2, 2, 3)
+    plt.axis([0, 11, 0, 11])
+    plt.axis('off')
+    fontsize = 12
+    plt.text(0, 10, 'Round Num: {}'.format(rounds), fontsize=fontsize)
+    plt.text(0, 9, 'Round Duration: {}'.format(
+        args.round_duration), fontsize=fontsize)
+    plt.text(0, 8, 'mu for Local Train Delay: {}'.format(
+        args.mu_local_train), fontsize=fontsize)
+    plt.text(0, 7, 'beta for Local Train Delay: {}'.format(
+        args.beta_local_train), fontsize=fontsize)
+    plt.text(0, 6, 'Local Iter Num: {}'.format(
+        args.local_iter), fontsize=fontsize)
+    plt.text(0, 5, 'Local Batch Size: {}'.format(
+        args.local_bs), fontsize=fontsize)
+    plt.text(0, 4, 'Learning Rate: {}'.format(args.lr), fontsize=fontsize)
+    plt.text(0, 3, 'non-i.i.d.: {}'.format(args.non_iid), fontsize=fontsize)
+    plt.text(0, 1, 'min_train_loss: {:.6f}'.format(
+        min_ignore_None(loss_train)), fontsize=fontsize)
+    plt.text(0, 0, 'min_val_loss: {:.6f}'.format(min_ignore_None(loss_val_same)), fontsize=fontsize)
+
+    plt.text(6, 10, 'Lambda: {}'.format(args.Lambda), fontsize=fontsize)
+    plt.text(6, 9, 'maxSpeed: {}'.format(args.maxSpeed), fontsize=fontsize)
+    plt.text(6, 8, 'delay_download: {}'.format(
+        args.delay_download), fontsize=fontsize)
+    plt.text(6, 7, 'delay_upload: {}'.format(args.delay_upload), fontsize=fontsize)
+
+    plt.text(6, 5, 'min_minADE: {:.6f}'.format(
+        min_ignore_None([i["minADE"] for i in metrices_eval_same])), fontsize=fontsize)
+    plt.text(6, 4, 'min_minADE1: {:.6f}'.format(
+        min_ignore_None([i["minADE1"] for i in metrices_eval_same])), fontsize=fontsize)
+    plt.text(6, 3, 'min_minFDE: {:.6f}'.format(
+        min_ignore_None([i["minFDE"] for i in metrices_eval_same])), fontsize=fontsize)
+    plt.text(6, 2, 'min_minFDE1: {:.6f}'.format(
+        min_ignore_None([i["minFDE1"] for i in metrices_eval_same])), fontsize=fontsize)
+    plt.text(6, 1, 'min_MR: {:.6f}'.format(
+        min_ignore_None([i["MR"] for i in metrices_eval_same])), fontsize=fontsize)
+    plt.text(6, 0, 'min_MR1: {:.6f}'.format(
+        min_ignore_None([i["MR1"] for i in metrices_eval_same])), fontsize=fontsize)
+
+
+    """if args.split_dict == 0:
+        plt.text(6, 3, 'split_dict: {}'.format(
+            "LOS_split_dict"), fontsize=fontsize)
+    elif args.split_dict == 1:
+        plt.text(6, 3, 'split_dict: {}'.format(
+            "coord_split_dict"), fontsize=fontsize)
+    else:
+        plt.text(6, 3, 'split_dict: {}'.format(
+            "unrecognized split_dict"), fontsize=fontsize)"""
+
+    savePath = "./save"
+    if args.plot_save_path != "default":
+        savePath = args.plot_save_path
+    os.makedirs(savePath, exist_ok=True)
+    savePath = os.path.join(savePath, 'RoundDuration{}_LocalTrainDelay_mu{}_beta{}_LocalIterNum{}_LocalBatchSize{}_Lambda{}_maxSpeed{}_noniid{}.png'.format(
+        args.round_duration, args.mu_local_train, args.beta_local_train, args.local_iter, args.local_bs, args.Lambda, args.maxSpeed, args.non_iid))
     plt.savefig(savePath)
     plt.close()

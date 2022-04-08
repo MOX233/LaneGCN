@@ -22,7 +22,7 @@ from torch.utils.data.dataloader import DataLoader
 from utils.options import args_parser
 from utils.sampling import Argoverse_iid, Argoverse_noniid
 #from utils.lstm_utils import ModelUtils, LSTMDataset, EncoderRNN, DecoderRNN, train, validate, evaluate, infer_helper, get_city_names_from_features, get_m_trajectories_along_n_cl, get_pruned_guesses, viz_predictions_helper
-from utils.update import LocalUpdate    # need to rewrite
+from utils.update import LocalUpdate, DatasetSplit
 from utils.federate_learning_avg import FedAvg
 from utils.plot_utils import min_ignore_None, plot_loss_acc_curve
 from utils.log_utils import save_training_log
@@ -39,7 +39,7 @@ from torch.utils.data import DataLoader
 
 from utils.utils import Logger, load_pretrain, save_ckpt, evaluate
 
-def FL_training(args,FL_table,car_tripinfo):
+def CL_training(args,city):
     # parse args
 
     # fix random_seed, so that the experiment can be repeat
@@ -47,6 +47,7 @@ def FL_training(args,FL_table,car_tripinfo):
     torch.cuda.manual_seed(args.seed)
     np.random.seed(args.seed)
     random.seed(args.seed)
+    
     args.device = torch.device('cuda:{}'.format(args.gpu) if torch.cuda.is_available() and args.gpu != -1 else 'cpu')
     print(f"Using device ({args.device}) ...")
     #model_utils = ModelUtils()
@@ -71,7 +72,7 @@ def FL_training(args,FL_table,car_tripinfo):
         exit('Error: unrecognized model')
 
     # load dataset and split users
-    num_users = len(car_tripinfo)
+    num_users = 1
     if args.dataset == 'Argoverse':
         # Get PyTorch Dataset
         print("Loading dataset")
@@ -79,18 +80,20 @@ def FL_training(args,FL_table,car_tripinfo):
         dataset_train = Dataset(args.train_features, config, train=True)
         dataset_val = Dataset(args.val_features, config, train=False)
 
-        if not args.non_iid:
-            dict_users = Argoverse_iid(dataset_train, args.num_items, num_users)
-        else:
-            # non-i.i.d. dataset by city name
-            city_dict = {'MIA':[], 'PIT':[]}
-            for idx,data in enumerate(dataset_train.split):
-                city_dict[data['city']].append(idx)
-            dict_users = Argoverse_noniid(dataset_train, city_dict, args.num_items, num_users)
+        # non-i.i.d. dataset by city name
+        train_city_dict = {'MIA':[], 'PIT':[]}
+        val_city_dict = {'MIA':[], 'PIT':[]}
+        
+        for idx,data in enumerate(dataset_train.split):
+            train_city_dict[data['city']].append(idx)
+        for idx,data in enumerate(dataset_val.split):
+            val_city_dict[data['city']].append(idx)
 
-            #exit('We have not realized Argoverse_noniid')
+        args.local_iter = int(len(train_city_dict[city])/args.local_bs)
+
         end_time = time.time()
         print("Complete dataset loading with running time {:.3f}s".format(end_time-start_time))
+        print("MIA:{}, PIT:{}".format(len(train_city_dict["MIA"]),len(train_city_dict["PIT"])))
 
     else:
         exit('Error: unrecognized dataset')
@@ -108,81 +111,69 @@ def FL_training(args,FL_table,car_tripinfo):
     sys.stdout = Logger(log_save_path)
 
     net_glob.train()
-    # copy weights
-    w_glob = net_glob.state_dict()
-
+    
     # training
     train_loss_list = []
-    val_loss_list = []
-    eval_metrices_list = []
+    val_same_loss_list = []
+    val_other_loss_list = []
+    eval_same_metrices_list = []
+    eval_other_metrices_list = []
     #net_best = net_glob
-    rounds = len(FL_table.keys())
+    rounds = 100
     for round in range(rounds):
         print("Round {:3d} Training start".format(round))
-        loss_locals = []
-        w_locals = []
-        idxs_users = [int(car.split('_')[-1]) for car in FL_table[round].keys()]
-        if idxs_users == []:
+        local = LocalUpdate(args=args, dataset=dataset_train, idxs=train_city_dict[city], local_bs=args.local_bs)
+        w_glob, loss = local.train(net=copy.deepcopy(net_glob), config=config, local_iter=args.local_iter)
 
-            # print loss
-            loss_avg = train_loss_list[-1] if round>0 else None
-            if loss_avg==None:
-                print('Round {:3d}, No Car, Average Training Loss None'.format(round))
-            else:
-                print('Round {:3d}, No Car, Average Training Loss {:.5f}'.format(round, loss_avg))
-            train_loss_list.append(loss_avg)
-    
-            # validation part
-            round_val_loss = val_loss_list[-1] if round>0 else None
-            metric_results = eval_metrices_list[-1] if round>0 else {"minADE": None, "minFDE": None, "MR": None, "minADE1": None, "minFDE1": None, "MR1": None, "DAC": None}
-            val_loss_list.append(round_val_loss)
-            eval_metrices_list.append(metric_results)
-            print("Validation Metrices: {}".format(metric_results))
-            
-        else:
-            for idx in idxs_users:
-                local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_users[idx], local_bs=args.local_bs)
-                print("localUpdate start for user {}".format(idx))
-                w, loss = local.train(net=copy.deepcopy(net_glob), config=config, local_iter=args.local_iter)
-                w_locals.append(copy.deepcopy(w))
-                loss_locals.append(copy.deepcopy(loss))
-            # update global weights
-            w_glob = FedAvg(w_locals)
-    
-            # copy weight to net_glob
-            net_glob.load_state_dict(w_glob)
-    
-            # print loss
-            loss_avg = sum(loss_locals) / len(loss_locals)
-            print('Round {:3d}, Car num: {:3d}, Average Training Loss {:.5f}'.format(round, len(idxs_users), loss_avg))
-            train_loss_list.append(loss_avg)
-    
-            # save checkpoint
-            print('save ckpt')
-            save_ckpt(net_glob, ckpt_save_path, round)
+        # copy weight to net_glob
+        net_glob.load_state_dict(w_glob)
 
-            # validation part
-            #metric_results, iter_val_loss = test_beam_select(net_glob, dataset_val, args)
-            
-            print('build val_loader')
-            val_loader = DataLoader(
-                dataset_val,
-                batch_size=config["val_batch_size"],
-                shuffle=True,
-                collate_fn=collate_fn,
-                pin_memory=True,
-            )
-            print('val begin')
-            round_val_loss, _cls, _reg, ade1, fde1, mr1, ade, fde, mr = val(args, val_loader, net_glob, Loss, post_process, round)
-            val_loss_list.append(round_val_loss)
-            metric_results = {"minADE": ade, "minFDE": fde, "MR": mr, "minADE1": ade1, "minFDE1": fde1, "MR1": mr1, "DAC": None}
-            eval_metrices_list.append(metric_results)
-        plot_loss_acc_curve(args, train_loss_list, val_loss_list, eval_metrices_list, rounds)
-        save_training_log(args, train_loss_list, val_loss_list, eval_metrices_list)
+        # print loss
+        loss_avg = copy.deepcopy(loss)
+        print('Round {:3d}, Average Training Loss {:.5f}'.format(round, loss_avg))
+        train_loss_list.append(loss_avg)
+
+        # save checkpoint
+        print('save ckpt')
+        save_ckpt(net_glob, ckpt_save_path, round)
+
+        # validation part
+        val_loader_same_city = DataLoader(
+            DatasetSplit(dataset_val, val_city_dict[city]),
+            batch_size=args.local_bs,
+            shuffle=False,
+            collate_fn=collate_fn,
+            pin_memory=True,
+        )
+        other_city = 'PIT' if city=='MIA' else 'MIA'
+        val_loader_other_city = DataLoader(
+            DatasetSplit(dataset_val, val_city_dict[other_city]),
+            batch_size=args.local_bs,
+            shuffle=False,
+            collate_fn=collate_fn,
+            pin_memory=True,
+        )
+        print('val begin')
+
+        round_val_loss, _cls, _reg, ade1, fde1, mr1, ade, fde, mr = val(args, val_loader_same_city, net_glob, Loss, post_process, round)
+        val_same_loss_list.append(round_val_loss)
+        metric_results = {"minADE": ade, "minFDE": fde, "MR": mr, "minADE1": ade1, "minFDE1": fde1, "MR1": mr1, "DAC": None}
+        print('Same city metric_results:{}'.format(metric_results))
+        eval_same_metrices_list.append(metric_results)
+        plot_loss_acc_curve(args, train_loss_list, val_same_loss_list, eval_same_metrices_list, rounds)
+        save_training_log(args, train_loss_list, val_same_loss_list, eval_same_metrices_list)
+
+        round_val_loss, _cls, _reg, ade1, fde1, mr1, ade, fde, mr = val(args, val_loader_other_city, net_glob, Loss, post_process, round)
+        val_other_loss_list.append(round_val_loss)
+        metric_results = {"minADE": ade, "minFDE": fde, "MR": mr, "minADE1": ade1, "minFDE1": fde1, "MR1": mr1, "DAC": None}
+        print('Other city metric_results:{}'.format(metric_results))
+        eval_other_metrices_list.append(metric_results)
 
 
-    # test part
-    net_glob.eval()
+        #plot_loss_acc_curve(args, train_loss_list, val_other_loss_list, eval_other_metrices_list, rounds)
+        #save_training_log(args, train_loss_list, val_other_loss_list, eval_other_metrices_list)
+
+
 
 
 def val(args, data_loader, net, loss, post_process, epoch):

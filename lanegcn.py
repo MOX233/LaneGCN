@@ -805,13 +805,14 @@ class PostProcess(nn.Module):
         preds = np.concatenate(metrics["preds"], 0)
         gt_preds = np.concatenate(metrics["gt_preds"], 0)
         has_preds = np.concatenate(metrics["has_preds"], 0)
-        ade1, fde1, ade, fde, min_idcs = pred_metrics(preds, gt_preds, has_preds)
+        ade1, fde1, ade, fde, min_idcs, mr1, mr = pred_metrics(preds, gt_preds, has_preds)
 
         print(
-            "loss %2.4f %2.4f %2.4f, ade1 %2.4f, fde1 %2.4f, ade %2.4f, fde %2.4f"
-            % (loss, cls, reg, ade1, fde1, ade, fde)
+            "loss %2.4f %2.4f %2.4f, ade1 %2.4f, fde1 %2.4f, mr1 %2.4f, ade %2.4f, fde %2.4f, mr %2.4f"
+            % (loss, cls, reg, ade1, fde1, mr1, ade, fde, mr)
         )
         print()
+        return loss, cls, reg, ade1, fde1, mr1, ade, fde, mr
 
 
 def pred_metrics(preds, gt_preds, has_preds):
@@ -824,13 +825,20 @@ def pred_metrics(preds, gt_preds, has_preds):
 
     ade1 = err[:, 0].mean()
     fde1 = err[:, 0, -1].mean()
+    
+    mr1 = (err[:, 0, -1]>2).sum()/len(err[:, 0, -1])
+    
 
     min_idcs = err[:, :, -1].argmin(1)
     row_idcs = np.arange(len(min_idcs)).astype(np.int64)
     err = err[row_idcs, min_idcs]
     ade = err.mean()
     fde = err[:, -1].mean()
-    return ade1, fde1, ade, fde, min_idcs
+    #import ipdb;ipdb.set_trace()
+    
+    mr = (err[:, -1]>2).sum()/len(err[:,-1])
+    
+    return ade1, fde1, ade, fde, min_idcs, mr1, mr
 
 
 def get_model(args):

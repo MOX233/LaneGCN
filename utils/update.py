@@ -25,8 +25,9 @@ class DatasetSplit(Dataset):
         return len(self.idxs)
 
     def __getitem__(self, item):
-        input, target, helpers = self.dataset[self.idxs[item]]
-        return input, target, helpers
+        #import ipdb;ipdb.set_trace()
+        data = self.dataset[self.idxs[item]]
+        return data
 
 
 class LocalUpdate(object):
@@ -36,7 +37,8 @@ class LocalUpdate(object):
         self.criterion = nn.MSELoss()
         self.selected_clients = []
         self.ldr_train = DataLoader(
-            dataset,
+            #dataset,
+            DatasetSplit(dataset, idxs),
             batch_size=local_bs,
             shuffle=True,
             collate_fn=collate_fn,
@@ -54,15 +56,11 @@ class LocalUpdate(object):
         iter_loss = []
         local_epoch = int(local_iter/len(self.ldr_train))
         metrics = dict()
-        print_interval = int(local_iter/5)
+        print_interval = int(local_iter/2)
         for epoch in range(local_epoch):
             for i, data in enumerate(self.ldr_train):
                 if (epoch*len(self.ldr_train)+i+1)%print_interval == 0:
                     print("Local training {}/{}".format(epoch*len(self.ldr_train)+i+1, local_iter))
-
-                import ipdb;ipdb.set_trace()
-                
-
                 data = dict(data)
                 output = net(data)
                 loss_out = loss(output, data)
