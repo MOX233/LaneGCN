@@ -16,13 +16,12 @@ if __name__ == "__main__":
     args.MU_local_train = args.local_iter * args.mu_local_train
     args.BETA_local_train = args.local_iter * args.beta_local_train
 
-    
-
+    city = 'PIT'
     file_path = os.path.abspath(__file__)
     root_path = os.path.dirname(file_path)
 
 
     if args.save_address_id == "default":
-        args.save_address_id = 'CL_training'
+        args.save_address_id = 'CL_training_' + city
     
-    CL_training(args,city='PIT')
+    CL_training(args,city=city)

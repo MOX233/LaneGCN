@@ -69,22 +69,22 @@ def generate_netfile(args, save_dir="./sumo_data"):
 <net version="1.9" junctionCornerDetail="5" limitTurnSpeed="5.50" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="http://sumo.dlr.de/xsd/net_file.xsd">
     <location netOffset="0.00,0.00" convBoundary="-210.00,0.00,210.00,0.00" origBoundary="-10000000000.00,-10000000000.00,10000000000.00,10000000000.00" projParameter="!"/>
     <edge id="left1" from="entrance1" to="end1" priority="-1" length="10.00">
-        <lane id="left1_0" index="0" speed="13.89" length="10.00" shape="-200.00,1.60 -210.00,1.60"/>
+        <lane id="left1_0" index="0" speed="{:.2f}" length="10.00" shape="-200.00,1.60 -210.00,1.60"/>
     </edge>
     <edge id="left2" from="end2" to="entrance2" priority="-1" length="10.00">
-        <lane id="left2_0" index="0" speed="13.89" length="10.00" shape="210.00,1.60 200.00,1.60"/>
+        <lane id="left2_0" index="0" speed="{:.2f}" length="10.00" shape="210.00,1.60 200.00,1.60"/>
     </edge>
     <edge id="left21" from="entrance2" to="entrance1" priority="-1" length="400.00">
-        <lane id="left21_0" index="0" speed="20.00" length="400.00" shape="200.00,1.60 -200.00,1.60"/>
+        <lane id="left21_0" index="0" speed="{:.2f}" length="400.00" shape="200.00,1.60 -200.00,1.60"/>
     </edge>
     <edge id="right1" from="end1" to="entrance1" priority="-1" length="10.00">
-        <lane id="right1_0" index="0" speed="13.89" length="10.00" shape="-210.00,-1.60 -200.00,-1.60"/>
+        <lane id="right1_0" index="0" speed="{:.2f}" length="10.00" shape="-210.00,-1.60 -200.00,-1.60"/>
     </edge>
     <edge id="right12" from="entrance1" to="entrance2" priority="-1" length="400.00">
-        <lane id="right12_0" index="0" speed="20.00" length="400.00" shape="-200.00,-1.60 200.00,-1.60"/>
+        <lane id="right12_0" index="0" speed="{:.2f}" length="400.00" shape="-200.00,-1.60 200.00,-1.60"/>
     </edge>
     <edge id="right2" from="entrance2" to="end2" priority="-1" length="10.00">
-        <lane id="right2_0" index="0" speed="13.89" length="10.00" shape="200.00,-1.60 210.00,-1.60"/>
+        <lane id="right2_0" index="0" speed="{:.2f}" length="10.00" shape="200.00,-1.60 210.00,-1.60"/>
     </edge>
     <junction id="end1" type="dead_end" x="-210.00" y="0.00" incLanes="left1_0" intLanes="" shape="-210.00,0.00 -210.00,3.20 -210.00,0.00"/>
     <junction id="end2" type="dead_end" x="210.00" y="0.00" incLanes="right2_0" intLanes="" shape="210.00,0.00 210.00,-3.20 210.00,0.00"/>
@@ -100,7 +100,7 @@ def generate_netfile(args, save_dir="./sumo_data"):
     <connection from="left21" to="left1" fromLane="0" toLane="0" dir="s" state="M"/>
     <connection from="right1" to="right12" fromLane="0" toLane="0" dir="s" state="M"/>
     <connection from="right12" to="right2" fromLane="0" toLane="0" dir="s" state="M"/>
-</net>""", file=netfile)
+</net>""".format(args.maxSpeed,args.maxSpeed,args.maxSpeed,args.maxSpeed,args.maxSpeed,args.maxSpeed), file=netfile)
 
 def generate_cfgfile(args, save_dir="./sumo_data"):
     os.makedirs(save_dir, exist_ok=True)

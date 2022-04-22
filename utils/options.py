@@ -16,7 +16,7 @@ def args_parser():
                         help="number of data from every user's local dataset. type: int or list")
     parser.add_argument('--local_iter', type=float, default=20,
                         help="Local iteration num")
-    parser.add_argument('--local_bs', type=int, default=128,
+    parser.add_argument('--local_bs', type=int, default=64,
                         help="local batch size: B")
     parser.add_argument('--lr', type=float, default=0.01, help="learning rate")
     parser.add_argument('--momentum', type=float, default=0.5,
@@ -157,9 +157,9 @@ def args_parser():
                         default=1, help="upload delay")
 
     parser.add_argument("--mu_local_train", type=float,
-                        default=0.2, help="param of shift exponential distribution function for local training delay")
+                        default=0.1, help="param of shift exponential distribution function for local training delay")
     parser.add_argument("--beta_local_train", type=float,
-                        default=0.2, help="param of shift exponential distribution function for local training delay")
+                        default=0.1, help="param of shift exponential distribution function for local training delay")
 
     parser.add_argument("--Lambda", type=float,
                         default=0.1, help="arrival rate of car flow")
@@ -178,10 +178,10 @@ def args_parser():
     parser.add_argument("--speedFactoer_mean", type=float,
                         default=1, help="")
     parser.add_argument("--speedFactoer_dev", type=float,
-                        default=0.1, help="")
+                        default=0, help="")
     parser.add_argument("--speedFactoer_min", type=float,
-                        default=0.5, help="")
+                        default=1, help="")
     parser.add_argument("--speedFactoer_max", type=float,
-                        default=1.5, help="")
+                        default=1, help="")
     args = parser.parse_args()
     return args

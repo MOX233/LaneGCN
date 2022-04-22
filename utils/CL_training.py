@@ -24,7 +24,7 @@ from utils.sampling import Argoverse_iid, Argoverse_noniid
 #from utils.lstm_utils import ModelUtils, LSTMDataset, EncoderRNN, DecoderRNN, train, validate, evaluate, infer_helper, get_city_names_from_features, get_m_trajectories_along_n_cl, get_pruned_guesses, viz_predictions_helper
 from utils.update import LocalUpdate, DatasetSplit
 from utils.federate_learning_avg import FedAvg
-from utils.plot_utils import min_ignore_None, plot_loss_acc_curve
+from utils.plot_utils import min_ignore_None, plot_loss_acc_curve, plot_for_CL
 from utils.log_utils import save_training_log
 from typing import Any, Dict, List, Tuple, Union
 from argoverse.evaluation.eval_forecasting import compute_forecasting_metrics
@@ -67,7 +67,7 @@ def CL_training(args,city):
             if args.resume:
                 config["epoch"] = ckpt["epoch"]
         net_glob = copy.deepcopy(net)
-        print(net_glob)
+        #print(net_glob)
     else:
         exit('Error: unrecognized model')
 
@@ -93,7 +93,8 @@ def CL_training(args,city):
 
         end_time = time.time()
         print("Complete dataset loading with running time {:.3f}s".format(end_time-start_time))
-        print("MIA:{}, PIT:{}".format(len(train_city_dict["MIA"]),len(train_city_dict["PIT"])))
+        print("training dataset MIA:{}, PIT:{}".format(len(train_city_dict["MIA"]),len(train_city_dict["PIT"])))
+        print("validation dataset MIA:{}, PIT:{}".format(len(val_city_dict["MIA"]),len(val_city_dict["PIT"])))
 
     else:
         exit('Error: unrecognized dataset')
@@ -119,7 +120,7 @@ def CL_training(args,city):
     eval_same_metrices_list = []
     eval_other_metrices_list = []
     #net_best = net_glob
-    rounds = 100
+    rounds = 30
     for round in range(rounds):
         print("Round {:3d} Training start".format(round))
         local = LocalUpdate(args=args, dataset=dataset_train, idxs=train_city_dict[city], local_bs=args.local_bs)
@@ -160,7 +161,6 @@ def CL_training(args,city):
         metric_results = {"minADE": ade, "minFDE": fde, "MR": mr, "minADE1": ade1, "minFDE1": fde1, "MR1": mr1, "DAC": None}
         print('Same city metric_results:{}'.format(metric_results))
         eval_same_metrices_list.append(metric_results)
-        plot_loss_acc_curve(args, train_loss_list, val_same_loss_list, eval_same_metrices_list, rounds)
         save_training_log(args, train_loss_list, val_same_loss_list, eval_same_metrices_list)
 
         round_val_loss, _cls, _reg, ade1, fde1, mr1, ade, fde, mr = val(args, val_loader_other_city, net_glob, Loss, post_process, round)
@@ -169,12 +169,8 @@ def CL_training(args,city):
         print('Other city metric_results:{}'.format(metric_results))
         eval_other_metrices_list.append(metric_results)
 
-
-        #plot_loss_acc_curve(args, train_loss_list, val_other_loss_list, eval_other_metrices_list, rounds)
-        #save_training_log(args, train_loss_list, val_other_loss_list, eval_other_metrices_list)
-
-
-
+        plot_for_CL(args, city, train_loss_list, val_same_loss_list, val_other_loss_list, eval_same_metrices_list, eval_other_metrices_list, rounds)
+        
 
 def val(args, data_loader, net, loss, post_process, epoch):
     net.eval()

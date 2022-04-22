@@ -118,10 +118,10 @@ def FL_training(args,FL_table,car_tripinfo):
     #net_best = net_glob
     rounds = len(FL_table.keys())
     for round in range(rounds):
-        print("Round {:3d} Training start".format(round))
         loss_locals = []
         w_locals = []
         idxs_users = [int(car.split('_')[-1]) for car in FL_table[round].keys()]
+        print("Round {:3d}, Car num {}, Training start".format(round, len(idxs_users)))
         if idxs_users == []:
 
             # print loss
@@ -138,6 +138,7 @@ def FL_training(args,FL_table,car_tripinfo):
             val_loss_list.append(round_val_loss)
             eval_metrices_list.append(metric_results)
             print("Validation Metrices: {}".format(metric_results))
+            continue
             
         else:
             for idx in idxs_users:
