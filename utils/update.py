@@ -89,7 +89,7 @@ class LocalUpdate(object):
             else:
                 break
         # return net.state_dict(), sum(iter_loss) / len(iter_loss)
-        return net.state_dict(), sum(iter_loss) / len(iter_loss)
+        return net.state_dict(), sum(iter_loss) / len(iter_loss), data['city'][0]
 
 def worker_init_fn(pid):
     np_seed = int(pid)

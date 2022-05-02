@@ -104,6 +104,11 @@ def args_parser():
                         default='Argoverse', help="name of dataset")
     parser.add_argument('--non_iid', action='store_true',
                         default=False,  help='whether i.i.d. or not')
+    parser.add_argument('--city_skew', action='store_true',
+                        default=False,  help='whether to apply FedAvg_weighted')
+    parser.add_argument('--skew', type=float,
+                        default=0.5, help='skew weight parameter for FedAvg_weighted')
+                        
     parser.add_argument('--verbose', action='store_true',
                         default=False,  help='verbose print')
     parser.add_argument('--seed', type=int, default=1,

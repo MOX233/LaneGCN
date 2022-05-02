@@ -23,7 +23,7 @@ from utils.options import args_parser
 from utils.sampling import Argoverse_iid, Argoverse_noniid
 #from utils.lstm_utils import ModelUtils, LSTMDataset, EncoderRNN, DecoderRNN, train, validate, evaluate, infer_helper, get_city_names_from_features, get_m_trajectories_along_n_cl, get_pruned_guesses, viz_predictions_helper
 from utils.update import LocalUpdate    # need to rewrite
-from utils.federate_learning_avg import FedAvg
+from utils.federate_learning_avg import FedAvg, FedAvg_weighted
 from utils.plot_utils import min_ignore_None, plot_loss_acc_curve
 from utils.log_utils import save_training_log
 from typing import Any, Dict, List, Tuple, Union
@@ -94,7 +94,8 @@ def FL_training(args,FL_table,car_tripinfo):
 
     else:
         exit('Error: unrecognized dataset')
-    
+
+
     # Create log and copy all code
     save_dir = config["save_dir"]
     log_save_dir = os.path.join(save_dir, "log")
@@ -120,6 +121,7 @@ def FL_training(args,FL_table,car_tripinfo):
     for round in range(rounds):
         loss_locals = []
         w_locals = []
+        city_locals = []
         idxs_users = [int(car.split('_')[-1]) for car in FL_table[round].keys()]
         print("Round {:3d}, Car num {}, Training start".format(round, len(idxs_users)))
         if idxs_users == []:
@@ -144,11 +146,15 @@ def FL_training(args,FL_table,car_tripinfo):
             for idx in idxs_users:
                 local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_users[idx], local_bs=args.local_bs)
                 print("localUpdate start for user {}".format(idx))
-                w, loss = local.train(net=copy.deepcopy(net_glob), config=config, local_iter=args.local_iter)
+                w, loss, _city = local.train(net=copy.deepcopy(net_glob), config=config, local_iter=args.local_iter)
                 w_locals.append(copy.deepcopy(w))
+                city_locals.append(_city)
                 loss_locals.append(copy.deepcopy(loss))
             # update global weights
-            w_glob = FedAvg(w_locals)
+            if args.city_skew and args.non_iid:
+                w_glob = FedAvg_weighted(w_locals, city_locals, skew=args.skew)
+            else:
+                w_glob = FedAvg(w_locals)
     
             # copy weight to net_glob
             net_glob.load_state_dict(w_glob)
