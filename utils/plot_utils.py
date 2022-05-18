@@ -46,18 +46,12 @@ def plot_loss_acc_curve(args, loss_train, loss_val, metrices_eval, rounds):
              for i in metrices_eval], color='r', linestyle='--', marker='*', label='minADE(K=6)')
     plt.plot(range(len(metrices_eval)), [i["minFDE"]
              for i in metrices_eval], color='g', linestyle='--', marker='*', label='minFDE(K=6)')
-    """plt.plot(range(len(metrices_eval)), [i["minADE1"]
-             for i in metrices_eval], color='r', label='minADE(K=1)')
-    plt.plot(range(len(metrices_eval)), [i["minFDE1"]
-             for i in metrices_eval], color='g', label='minFDE(K=1)')"""
     plt.xlabel('round')
     plt.ylabel('minADE/minFDE')
     plt.legend()
     plt.subplot(2, 2, 4)
     plt.plot(range(len(metrices_eval)), [i["MR"]
              for i in metrices_eval], color='b', label='MR')
-    """plt.plot(range(len(metrices_eval)), [i["MR1"]
-             for i in metrices_eval], color='r', label='MR1')"""
     plt.xlabel('round')
     plt.ylabel('MR')
     plt.legend()
@@ -102,23 +96,14 @@ def plot_loss_acc_curve(args, loss_train, loss_val, metrices_eval, rounds):
     plt.text(6, 0, 'min_MR1: {:.6f}'.format(
         min_ignore_None([i["MR1"] for i in metrices_eval])), fontsize=fontsize)
 
-
-    """if args.split_dict == 0:
-        plt.text(6, 3, 'split_dict: {}'.format(
-            "LOS_split_dict"), fontsize=fontsize)
-    elif args.split_dict == 1:
-        plt.text(6, 3, 'split_dict: {}'.format(
-            "coord_split_dict"), fontsize=fontsize)
-    else:
-        plt.text(6, 3, 'split_dict: {}'.format(
-            "unrecognized split_dict"), fontsize=fontsize)"""
-
     savePath = "./save"
     if args.plot_save_path != "default":
         savePath = args.plot_save_path
     os.makedirs(savePath, exist_ok=True)
     savePath = os.path.join(savePath, 'RoundDuration{}_LocalTrainDelay_mu{}_beta{}_LocalIterNum{}_LocalBatchSize{}_Lambda{}_maxSpeed{}_noniid{}.png'.format(
         args.round_duration, args.mu_local_train, args.beta_local_train, args.local_iter, args.local_bs, args.Lambda, args.maxSpeed, args.non_iid))
+    #debug
+    #import ipdb;ipdb.set_trace()
     plt.savefig(savePath)
     plt.close()
 
@@ -213,6 +198,6 @@ def plot_for_CL(args, city, loss_train, loss_val_same, loss_val_other, metrices_
 
     savePath = "./save/CL_training"
     os.makedirs(savePath, exist_ok=True)
-    savePath = os.path.join(savePath, 'city_{}.png'.format(city))
+    savePath = os.path.join(savePath, 'city_{}_rounds_{}.png'.format(city,rounds))
     plt.savefig(savePath)
     plt.close()

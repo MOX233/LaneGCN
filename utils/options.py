@@ -12,7 +12,7 @@ def args_parser():
 
 
     # federated arguments
-    parser.add_argument('--num_items', type=int, default=8096,
+    parser.add_argument('--num_items', type=int, default=1024,
                         help="number of data from every user's local dataset. type: int or list")
     parser.add_argument('--local_iter', type=float, default=20,
                         help="Local iteration num")
@@ -61,6 +61,8 @@ def args_parser():
     parser.add_argument("--weight", default="", type=str, metavar="WEIGHT", help="checkpoint path")
 
     # evaluation arguments
+    parser.add_argument('--no_eval', action='store_true',
+                        default=False,  help='if no_eval, we do not carry out evaluation.')
     parser.add_argument("--metrics",
                         action="store_true",
                         help="If true, compute metrics")
@@ -104,7 +106,14 @@ def args_parser():
                         default='Argoverse', help="name of dataset")
     parser.add_argument('--non_iid', action='store_true',
                         default=False,  help='whether i.i.d. or not')
+
+    parser.add_argument('--x_split_num', type=int, default=1, help="Not realized. Split the training dataset for non-i.i.d. dataset by GPS location. x_split_num means how many splittings we take along the x axis.")
+    parser.add_argument('--y_split_num', type=int, default=1, help="Not realized. Split the training dataset for non-i.i.d. dataset by GPS location. y_split_num means how many splittings we take along the y axis.")
+    parser.add_argument('--split_dict', type=int, default=0, help="Specifies which splitting method we will take for non-i.i.d. dataset. 0 means city_split_dict, 1 means behavior_split_dict.")
+
     parser.add_argument('--city_skew', action='store_true',
+                        default=False,  help='whether to apply FedAvg_weighted')
+    parser.add_argument('--behavior_skew', action='store_true',
                         default=False,  help='whether to apply FedAvg_weighted')
     parser.add_argument('--skew', type=float,
                         default=0.5, help='skew weight parameter for FedAvg_weighted')

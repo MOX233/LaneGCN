@@ -23,7 +23,7 @@ from utils.options import args_parser
 from utils.sampling import Argoverse_iid, Argoverse_noniid
 #from utils.lstm_utils import ModelUtils, LSTMDataset, EncoderRNN, DecoderRNN, train, validate, evaluate, infer_helper, get_city_names_from_features, get_m_trajectories_along_n_cl, get_pruned_guesses, viz_predictions_helper
 from utils.update import LocalUpdate    # need to rewrite
-from utils.federate_learning_avg import FedAvg, FedAvg_weighted
+from utils.federate_learning_avg import FedAvg, FedAvg_city_weighted, FedAvg_behavior_weighted
 from utils.plot_utils import min_ignore_None, plot_loss_acc_curve
 from utils.log_utils import save_training_log
 from typing import Any, Dict, List, Tuple, Union
@@ -33,11 +33,8 @@ from utils.logger import Logger
 
 from importlib import import_module
 
-import torch
-from torch.utils.data import DataLoader
 
-
-from utils.utils import Logger, load_pretrain, save_ckpt, evaluate
+from utils.utils import Logger, load_pretrain, save_ckpt, evaluate, get_behavior_split_dict, get_behavior_split_dict_v2
 
 def FL_training(args,FL_table,car_tripinfo):
     # parse args
@@ -82,13 +79,29 @@ def FL_training(args,FL_table,car_tripinfo):
         if not args.non_iid:
             dict_users = Argoverse_iid(dataset_train, args.num_items, num_users)
         else:
-            # non-i.i.d. dataset by city name
-            city_dict = {'MIA':[], 'PIT':[]}
-            for idx,data in enumerate(dataset_train.split):
-                city_dict[data['city']].append(idx)
-            dict_users = Argoverse_noniid(dataset_train, city_dict, args.num_items, num_users)
+            if args.split_dict == 0:
+                # non-i.i.d. dataset by city name
+                city_split_dict = {'MIA':[], 'PIT':[]}
+                for idx,data in enumerate(dataset_train.split):
+                    city_split_dict[data['city']].append(idx)
+                dict_users = Argoverse_noniid(dataset_train, city_split_dict, args.num_items, num_users)
+            elif args.split_dict == 1:
+                # non-i.i.d. dataset by car behavior
+                bhv_train_ldr = DataLoader(
+                    dataset_train,
+                    batch_size=1,
+                    shuffle=False,
+                    collate_fn=collate_fn
+                )
+                """behavior_split_dict = get_behavior_split_dict(bhv_train_ldr, sth=0.01)
+                print(len(behavior_split_dict['go straight']), len(behavior_split_dict['turn left']), len(behavior_split_dict['turn right']))"""
+                behavior_split_dict = get_behavior_split_dict_v2(bhv_train_ldr, sth=0.01)
+                print(len(behavior_split_dict['go straight']), len(behavior_split_dict['turn']))
 
-            #exit('We have not realized Argoverse_noniid')
+                dict_users = Argoverse_noniid(dataset_train, behavior_split_dict, args.num_items, num_users)
+            else:
+                exit('Error: unrecognized type of non i.i.d. split dict')
+
         end_time = time.time()
         print("Complete dataset loading with running time {:.3f}s".format(end_time-start_time))
 
@@ -122,6 +135,7 @@ def FL_training(args,FL_table,car_tripinfo):
         loss_locals = []
         w_locals = []
         city_locals = []
+        behavior_locals = []
         idxs_users = [int(car.split('_')[-1]) for car in FL_table[round].keys()]
         print("Round {:3d}, Car num {}, Training start".format(round, len(idxs_users)))
         if idxs_users == []:
@@ -135,24 +149,30 @@ def FL_training(args,FL_table,car_tripinfo):
             train_loss_list.append(loss_avg)
     
             # validation part
-            round_val_loss = val_loss_list[-1] if round>0 else None
-            metric_results = eval_metrices_list[-1] if round>0 else {"minADE": None, "minFDE": None, "MR": None, "minADE1": None, "minFDE1": None, "MR1": None, "DAC": None}
-            val_loss_list.append(round_val_loss)
-            eval_metrices_list.append(metric_results)
-            print("Validation Metrices: {}".format(metric_results))
+            if args.no_eval == False:
+                round_val_loss = val_loss_list[-1] if round>0 else None
+                metric_results = eval_metrices_list[-1] if round>0 else {"minADE": None, "minFDE": None, "MR": None, "minADE1": None, "minFDE1": None, "MR1": None, "DAC": None}
+                val_loss_list.append(round_val_loss)
+                eval_metrices_list.append(metric_results)
+                print("Validation Metrices: {}".format(metric_results))
             continue
             
         else:
             for idx in idxs_users:
                 local = LocalUpdate(args=args, dataset=dataset_train, idxs=dict_users[idx], local_bs=args.local_bs)
                 print("localUpdate start for user {}".format(idx))
-                w, loss, _city = local.train(net=copy.deepcopy(net_glob), config=config, local_iter=args.local_iter)
+                w, loss, _city, _behavior = local.train(net=copy.deepcopy(net_glob), config=config, local_iter=args.local_iter)
                 w_locals.append(copy.deepcopy(w))
+
                 city_locals.append(_city)
+                behavior_locals.append(_behavior[0][0])
+
                 loss_locals.append(copy.deepcopy(loss))
             # update global weights
             if args.city_skew and args.non_iid:
-                w_glob = FedAvg_weighted(w_locals, city_locals, skew=args.skew)
+                w_glob = FedAvg_city_weighted(w_locals, city_locals, skew=args.skew)
+            elif args.behavior_skew and args.non_iid:
+                w_glob = FedAvg_behavior_weighted(w_locals, behavior_locals, skew=args.skew)
             else:
                 w_glob = FedAvg(w_locals)
     
@@ -170,20 +190,21 @@ def FL_training(args,FL_table,car_tripinfo):
 
             # validation part
             #metric_results, iter_val_loss = test_beam_select(net_glob, dataset_val, args)
-            
-            print('build val_loader')
-            val_loader = DataLoader(
-                dataset_val,
-                batch_size=config["val_batch_size"],
-                shuffle=True,
-                collate_fn=collate_fn,
-                pin_memory=True,
-            )
-            print('val begin')
-            round_val_loss, _cls, _reg, ade1, fde1, mr1, ade, fde, mr = val(args, val_loader, net_glob, Loss, post_process, round)
-            val_loss_list.append(round_val_loss)
-            metric_results = {"minADE": ade, "minFDE": fde, "MR": mr, "minADE1": ade1, "minFDE1": fde1, "MR1": mr1, "DAC": None}
-            eval_metrices_list.append(metric_results)
+            if args.no_eval == False:
+                print('build val_loader')
+                val_loader = DataLoader(
+                    dataset_val,
+                    batch_size=config["val_batch_size"],
+                    shuffle=True,
+                    collate_fn=collate_fn,
+                    pin_memory=True,
+                )
+                print('val begin')
+                round_val_loss, _cls, _reg, ade1, fde1, mr1, ade, fde, mr = val(args, val_loader, net_glob, Loss, post_process, round)
+
+                val_loss_list.append(round_val_loss)
+                metric_results = {"round":round, "minADE": ade, "minFDE": fde, "MR": mr, "minADE1": ade1, "minFDE1": fde1, "MR1": mr1, "DAC": None}
+                eval_metrices_list.append(metric_results)
         plot_loss_acc_curve(args, train_loss_list, val_loss_list, eval_metrices_list, rounds)
         save_training_log(args, train_loss_list, val_loss_list, eval_metrices_list)
 

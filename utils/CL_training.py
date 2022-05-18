@@ -89,7 +89,7 @@ def CL_training(args,city):
         for idx,data in enumerate(dataset_val.split):
             val_city_dict[data['city']].append(idx)
 
-        args.local_iter = int(len(train_city_dict[city])/args.local_bs)
+        #args.local_iter = int(len(train_city_dict[city])/args.local_bs)
 
         end_time = time.time()
         print("Complete dataset loading with running time {:.3f}s".format(end_time-start_time))
@@ -124,7 +124,7 @@ def CL_training(args,city):
     for round in range(rounds):
         print("Round {:3d} Training start".format(round))
         local = LocalUpdate(args=args, dataset=dataset_train, idxs=train_city_dict[city], local_bs=args.local_bs)
-        w_glob, loss = local.train(net=copy.deepcopy(net_glob), config=config, local_iter=args.local_iter)
+        w_glob, loss, _c, _b = local.train(net=copy.deepcopy(net_glob), config=config, local_iter=args.local_iter)
 
         # copy weight to net_glob
         net_glob.load_state_dict(w_glob)
@@ -169,7 +169,7 @@ def CL_training(args,city):
         print('Other city metric_results:{}'.format(metric_results))
         eval_other_metrices_list.append(metric_results)
 
-        plot_for_CL(args, city, train_loss_list, val_same_loss_list, val_other_loss_list, eval_same_metrices_list, eval_other_metrices_list, rounds)
+        plot_for_CL(args, city, train_loss_list, val_same_loss_list, val_other_loss_list, eval_same_metrices_list, eval_other_metrices_list, round)
         
 
 def val(args, data_loader, net, loss, post_process, epoch):

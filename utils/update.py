@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader, Dataset
 from data import collate_fn
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 from numpy import float64, ndarray
-from utils.utils import gpu, to_long,  Optimizer, StepLR
+from utils.utils import gpu, to_long,  Optimizer, StepLR, judge_action_for_batch
 #from utils.lstm_utils import ModelUtils, LSTMDataset, EncoderRNN, DecoderRNN, train, validate, evaluate, infer_helper, get_city_names_from_features, get_m_trajectories_along_n_cl, get_pruned_guesses, viz_predictions_helper
 
 
@@ -89,7 +89,7 @@ class LocalUpdate(object):
             else:
                 break
         # return net.state_dict(), sum(iter_loss) / len(iter_loss)
-        return net.state_dict(), sum(iter_loss) / len(iter_loss), data['city'][0]
+        return net.state_dict(), sum(iter_loss) / len(iter_loss), data['city'][0], judge_action_for_batch(data)
 
 def worker_init_fn(pid):
     np_seed = int(pid)

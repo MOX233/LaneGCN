@@ -16,9 +16,73 @@ from typing import Any, Dict, List, Tuple, Union
 import utils.baseline_utils as baseline_utils
 from utils.baseline_utils import viz_predictions
 from utils.baseline_config import FEATURE_FORMAT
+from torch.utils.data import DataLoader
 from argoverse.map_representation.map_api import ArgoverseMap
 from argoverse.evaluation.eval_forecasting import compute_forecasting_metrics
 
+def judge_action(traj, sth=0.1):
+    
+    #traj shape (50,2)
+    num_step = len(traj)
+    traj = np.squeeze(traj)
+    eps = 1e-8
+    traj_norm = traj - traj[0,:]
+    xt,yt = traj_norm[-1,0], traj_norm[-1,1]
+    D = np.sqrt(xt**2+yt**2)
+    a = -xt/(yt+eps)
+    get_dist = lambda pos: np.abs((pos[0]+a*pos[1])/np.sqrt(1+a**2))
+    left, right = 0,0
+    for pos in traj_norm:
+        if (pos[0]+a*pos[1])*yt>0:
+            right += get_dist(pos)
+        elif (pos[0]+a*pos[1])*yt<0:
+            left += get_dist(pos)
+    feat = (right-left)/D/num_step
+    #print("k,left,right",-1/a,left,right)
+    #print(feat)
+    if feat > sth:
+        return "turn left"
+    elif feat < -sth:
+        return "turn right"
+    else:
+        return "go straight"
+
+def judge_action_for_batch(data_input, sth=0.01, prt=False):
+    results = []
+    for idx in range(len(data_input['feats'])):
+        _feats = data_input['feats'][idx][0,...,:2]
+        obs_feats = torch.zeros_like(_feats)
+        obs_feats[0] = _feats[0]
+        for t in range(1, len(_feats)):
+            obs_feats[t] = obs_feats[t-1] + _feats[t]
+        obs_feats -= obs_feats[-1]-obs_feats[0]
+        obs = torch.matmul(obs_feats, data_input['rot'][idx]) + data_input['orig'][idx].view(1,-1) 
+        obs = obs.numpy()
+        gt = [x[0:1].numpy() for x in data_input["gt_preds"]][idx][0,...]
+        traj = np.concatenate((obs,gt), axis=0)
+        result = [judge_action(traj, sth),data_input['city'][idx]]
+        results.append(result)
+        if prt:
+            print(idx,result)
+    return results
+
+def get_behavior_split_dict(dataloader, sth=0.01):
+    behavior_dict = {'go straight':[], 'turn left':[], 'turn right':[]}
+    results = []
+    for idx, data_input in enumerate(dataloader):
+        results.append(judge_action_for_batch(data_input, sth=sth, prt=False)[0][0])
+    for idx, result in enumerate(results):
+        behavior_dict[result].append(idx)
+    return behavior_dict
+
+def get_behavior_split_dict_v2(dataloader, sth=0.01):
+    behavior_dict = {'go straight':[], 'turn':[]}
+    results = []
+    for idx, data_input in enumerate(dataloader):
+        results.append('go straight' if 'go straight' == judge_action_for_batch(data_input, sth=sth, prt=False)[0][0] else 'turn')
+    for idx, result in enumerate(results):
+        behavior_dict[result].append(idx)
+    return behavior_dict
 
 def index_dict(data, idcs):
     returns = dict()
