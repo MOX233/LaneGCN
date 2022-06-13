@@ -63,6 +63,11 @@ def args_parser():
     # evaluation arguments
     parser.add_argument('--no_eval', action='store_true',
                         default=False,  help='if no_eval, we do not carry out evaluation.')
+    parser.add_argument('--simple_eval', action='store_true',
+                        default=False,  help='if simple_eval, we use only a subset of the whole validation dataset as the validation dataset.')
+    parser.add_argument('--simple_eval_num', type=int,
+                        default=1000,  help='if simple_eval, the volume of the validation dataset is simple_eval_num.')
+                        
     parser.add_argument("--metrics",
                         action="store_true",
                         help="If true, compute metrics")

@@ -72,6 +72,7 @@ class LocalUpdate(object):
                 optimizer.step()
                 iter_loss.append(loss_out["loss"].item())
         for i, data in enumerate(self.ldr_train):
+            #import ipdb;ipdb.set_trace()
             if i < local_iter-local_epoch*len(self.ldr_train):
                 if (local_epoch*len(self.ldr_train)+i+1)%print_interval == 0:
                     print("Local training {}/{}".format(local_epoch*len(self.ldr_train)+i+1, local_iter))

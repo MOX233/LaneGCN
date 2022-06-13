@@ -22,7 +22,7 @@ from torch.utils.data.dataloader import DataLoader
 from utils.options import args_parser
 from utils.sampling import Argoverse_iid, Argoverse_noniid
 #from utils.lstm_utils import ModelUtils, LSTMDataset, EncoderRNN, DecoderRNN, train, validate, evaluate, infer_helper, get_city_names_from_features, get_m_trajectories_along_n_cl, get_pruned_guesses, viz_predictions_helper
-from utils.update import LocalUpdate    # need to rewrite
+from utils.update import LocalUpdate,DatasetSplit    # need to rewrite
 from utils.federate_learning_avg import FedAvg, FedAvg_city_weighted, FedAvg_behavior_weighted
 from utils.plot_utils import min_ignore_None, plot_loss_acc_curve
 from utils.log_utils import save_training_log
@@ -63,7 +63,7 @@ def FL_training(args,FL_table,car_tripinfo):
             if args.resume:
                 config["epoch"] = ckpt["epoch"]
         net_glob = copy.deepcopy(net)
-        print(net_glob)
+        #print(net_glob)
     else:
         exit('Error: unrecognized model')
 
@@ -75,6 +75,11 @@ def FL_training(args,FL_table,car_tripinfo):
         start_time = time.time()
         dataset_train = Dataset(args.train_features, config, train=True)
         dataset_val = Dataset(args.val_features, config, train=False)
+        #print('dataset size',len(dataset_train),len(dataset_val))
+        #import ipdb;ipdb.set_trace()
+        if args.simple_eval:
+            simple_val_idxs = np.random.choice(list(range(len(dataset_val))),args.simple_eval_num,replace=False)
+            dataset_val = DatasetSplit(dataset_val,simple_val_idxs)
 
         if not args.non_iid:
             dict_users = Argoverse_iid(dataset_train, args.num_items, num_users)
@@ -183,10 +188,6 @@ def FL_training(args,FL_table,car_tripinfo):
             loss_avg = sum(loss_locals) / len(loss_locals)
             print('Round {:3d}, Car num: {:3d}, Average Training Loss {:.5f}'.format(round, len(idxs_users), loss_avg))
             train_loss_list.append(loss_avg)
-    
-            # save checkpoint
-            print('save ckpt')
-            save_ckpt(net_glob, ckpt_save_path, round)
 
             # validation part
             #metric_results, iter_val_loss = test_beam_select(net_glob, dataset_val, args)
@@ -208,7 +209,9 @@ def FL_training(args,FL_table,car_tripinfo):
         plot_loss_acc_curve(args, train_loss_list, val_loss_list, eval_metrices_list, rounds)
         save_training_log(args, train_loss_list, val_loss_list, eval_metrices_list)
 
-
+    # save checkpoint
+    print('save ckpt')
+    save_ckpt(net_glob, ckpt_save_path, round)
     # test part
     net_glob.eval()
 

@@ -39,6 +39,7 @@ Thumbs.db
 # others #
 *.pyc
 *.png
+*.pdf
 *.csv
 *.txt
 *.sh
@@ -55,4 +56,5 @@ sumo_data
 ground_truth_data
 saved_*
 .ipynb_checkpoints
+pdfs*
 
